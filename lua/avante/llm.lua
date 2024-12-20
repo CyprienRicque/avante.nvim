@@ -356,7 +356,7 @@ M._dual_boost_stream = function(opts, Provider1, Provider2)
   if not success then Utils.error("Failed to start dual_boost streams: " .. tostring(err)) end
 end
 
----@alias LlmMode "planning" | "editing" | "suggesting"
+---@alias LlmMode "planning" | "editing" | "suggesting" | "base"
 ---
 ---@class SelectedFiles
 ---@field path string

@@ -1483,13 +1483,48 @@ local generating_text = "**Generating response ...**\n"
 
 local hint_window = nil
 
+
+---@param chat_history table[]
+---@return table[]
+function Sidebar:extract_history_messages(chat_history)
+  local history_messages = {}
+  for i = #chat_history, 1, -1 do
+    local entry = chat_history[i]
+    if entry.reset_memory then break end
+    if
+      entry.request == nil
+      or entry.original_response == nil
+      or entry.request == ""
+      or entry.original_response == ""
+    then
+      break
+    end
+    table.insert(history_messages, 1, { role = "assistant", content = entry.original_response })
+    local user_content = ""
+    if entry.selected_file ~= nil then
+      user_content = user_content .. "SELECTED FILE: " .. entry.selected_file.filepath .. "\n\n"
+    end
+    if entry.selected_code ~= nil then
+      user_content = user_content
+        .. "SELECTED CODE:\n\n```"
+        .. entry.selected_code.filetype
+        .. "\n"
+        .. entry.selected_code.content
+        .. "\n```\n\n"
+    end
+    user_content = user_content .. "USER PROMPT:\n\n" .. entry.request
+    table.insert(history_messages, 1, { role = "user", content = user_content })
+  end
+  return history_messages
+end
+
+
 ---@param opts AskOptions
 function Sidebar:create_input_container(opts)
   if self.input_container then self.input_container:unmount() end
 
   if not self.code.bufnr or not api.nvim_buf_is_valid(self.code.bufnr) then return end
 
-  local chat_history = Path.history.load(self.code.bufnr)
 
   ---@param request string
   ---@return GeneratePromptsOptions
@@ -1517,33 +1552,12 @@ function Sidebar:create_input_container(opts)
       end
     end
 
-    local history_messages = {}
-    for i = #chat_history, 1, -1 do
-      local entry = chat_history[i]
-      if entry.reset_memory then break end
-      if
-        entry.request == nil
-        or entry.original_response == nil
-        or entry.request == ""
-        or entry.original_response == ""
-      then
-        break
-      end
-      table.insert(history_messages, 1, { role = "assistant", content = entry.original_response })
-      local user_content = ""
-      if entry.selected_file ~= nil then
-        user_content = user_content .. "SELECTED FILE: " .. entry.selected_file.filepath .. "\n\n"
-      end
-      if entry.selected_code ~= nil then
-        user_content = user_content
-          .. "SELECTED CODE:\n\n```"
-          .. entry.selected_code.filetype
-          .. "\n"
-          .. entry.selected_code.content
-          .. "\n```\n\n"
-      end
-      user_content = user_content .. "USER PROMPT:\n\n" .. entry.request
-      table.insert(history_messages, 1, { role = "user", content = user_content })
+    local chat_history = Path.history.load(self.code.bufnr)
+    local history_messages = self:extract_history_messages(chat_history)
+
+    local mode = "base"
+    if #selected_files_contents > 0 then
+      mode = "planning"
     end
 
     return {
@@ -1555,7 +1569,7 @@ function Sidebar:create_input_container(opts)
       code_lang = filetype,
       selected_code = selected_code_content,
       instructions = request,
-      mode = "planning",
+      mode = mode,
     }
   end
 
@@ -1673,6 +1687,7 @@ function Sidebar:create_input_container(opts)
         if Config.behaviour.auto_apply_diff_after_generation then self:apply(false) end
       end, 0)
 
+      local chat_history = Path.history.load(self.code.bufnr)
       -- Save chat history
       table.insert(chat_history or {}, {
         timestamp = timestamp,
@@ -2054,10 +2069,10 @@ function Sidebar:create_selected_files_container()
   local render = function()
     local selected_filepaths_ = self.file_selector:get_selected_filepaths()
 
-    if #selected_filepaths_ == 0 then
-      self.selected_files_container:unmount()
-      return
-    end
+    -- if #selected_filepaths_ == 0 then
+    --   self.selected_files_container:unmount()
+    --   return
+    -- end
 
     local selected_filepaths_with_icon = {}
     for _, filepath in ipairs(selected_filepaths_) do
