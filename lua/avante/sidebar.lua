@@ -1246,8 +1246,9 @@ local function get_timestamp() return os.date("%Y-%m-%d %H:%M:%S") end
 local function render_chat_record_prefix(timestamp, provider, model, request, selected_filepaths, selected_code)
   provider = provider or "unknown"
   model = model or "unknown"
-  local res = "- Datetime: " .. timestamp .. "\n\n" .. "- Model: " .. provider .. "/" .. model
-  if selected_filepaths ~= nil then
+  -- local res = "- Datetime: " .. timestamp .. "\n\n" .. "- Model: " .. provider .. "/" .. model
+  local res = "- Model: " .. provider .. "/" .. model
+  if selected_filepaths ~= nil and #selected_filepaths > 0 then
     res = res .. "\n\n- Selected files:"
     for _, path in ipairs(selected_filepaths) do
       res = res .. "\n  - " .. path
